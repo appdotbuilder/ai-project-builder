@@ -1,9 +1,33 @@
+import { db } from '../db';
+import { projectsTable } from '../db/schema';
+import { eq, and } from 'drizzle-orm';
+
 export async function deleteProject(projectId: number, userId: number): Promise<boolean> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to:
-    // 1. Verify that the project belongs to the authenticated user
-    // 2. Delete the project and all associated files (cascade delete)
-    // 3. Return true if successful, throw error if unauthorized or not found
-    
-    return Promise.resolve(true);
+  try {
+    // First, verify that the project exists and belongs to the authenticated user
+    const project = await db.select()
+      .from(projectsTable)
+      .where(and(
+        eq(projectsTable.id, projectId),
+        eq(projectsTable.user_id, userId)
+      ))
+      .execute();
+
+    if (project.length === 0) {
+      throw new Error('Project not found or unauthorized');
+    }
+
+    // Delete the project - cascade delete will handle associated files
+    const result = await db.delete(projectsTable)
+      .where(and(
+        eq(projectsTable.id, projectId),
+        eq(projectsTable.user_id, userId)
+      ))
+      .execute();
+
+    return true;
+  } catch (error) {
+    console.error('Project deletion failed:', error);
+    throw error;
+  }
 }

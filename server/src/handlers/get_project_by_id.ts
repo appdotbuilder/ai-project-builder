@@ -1,11 +1,35 @@
+import { db } from '../db';
+import { projectsTable } from '../db/schema';
 import { type Project } from '../schema';
+import { eq, and } from 'drizzle-orm';
 
 export async function getProjectById(projectId: number, userId: number): Promise<Project | null> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to:
-    // 1. Query project by ID from the database
-    // 2. Verify that the project belongs to the authenticated user
-    // 3. Return project data or null if not found/unauthorized
-    
-    return Promise.resolve(null);
+  try {
+    // Query project by ID and ensure it belongs to the authenticated user
+    const results = await db.select()
+      .from(projectsTable)
+      .where(and(
+        eq(projectsTable.id, projectId),
+        eq(projectsTable.user_id, userId)
+      ))
+      .execute();
+
+    if (results.length === 0) {
+      return null;
+    }
+
+    const project = results[0];
+    return {
+      id: project.id,
+      name: project.name,
+      description: project.description,
+      user_id: project.user_id,
+      metadata: project.metadata as Record<string, any> | null,
+      created_at: project.created_at,
+      updated_at: project.updated_at
+    };
+  } catch (error) {
+    console.error('Failed to get project by ID:', error);
+    throw error;
+  }
 }

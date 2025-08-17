@@ -1,12 +1,42 @@
+import { db } from '../db';
+import { projectsTable, projectFilesTable } from '../db/schema';
 import { type ProjectWithFiles } from '../schema';
+import { eq, and } from 'drizzle-orm';
 
 export async function getProjectWithFiles(projectId: number, userId: number): Promise<ProjectWithFiles | null> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to:
-    // 1. Verify that the project belongs to the authenticated user
-    // 2. Query project data along with all its files in a single operation
-    // 3. Return combined project and files data for workspace view
-    // 4. Optimize query to use relations for better performance
-    
-    return Promise.resolve(null);
+  try {
+    // First verify that the project exists and belongs to the user
+    const project = await db.select()
+      .from(projectsTable)
+      .where(
+        and(
+          eq(projectsTable.id, projectId),
+          eq(projectsTable.user_id, userId)
+        )
+      )
+      .execute();
+
+    if (project.length === 0) {
+      return null;
+    }
+
+    // Get all files for this project
+    const files = await db.select()
+      .from(projectFilesTable)
+      .where(eq(projectFilesTable.project_id, projectId))
+      .execute();
+
+    // Convert the database result to match the expected schema types
+    const projectData = project[0];
+    return {
+      project: {
+        ...projectData,
+        metadata: projectData.metadata as Record<string, any> | null
+      },
+      files: files
+    };
+  } catch (error) {
+    console.error('Failed to get project with files:', error);
+    throw error;
+  }
 }

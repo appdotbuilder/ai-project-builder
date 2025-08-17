@@ -1,20 +1,60 @@
+import { db } from '../db';
+import { projectsTable, usersTable, projectFilesTable } from '../db/schema';
 import { type CreateProjectInput, type Project } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export async function createProject(input: CreateProjectInput): Promise<Project> {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to:
-    // 1. Validate that the user_id exists and belongs to authenticated user
+  try {
+    // 1. Validate that the user_id exists
+    const user = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.id, input.user_id))
+      .execute();
+
+    if (user.length === 0) {
+      throw new Error(`User with id ${input.user_id} does not exist`);
+    }
+
     // 2. Create new project record in the database
-    // 3. Optionally create initial project structure (like src/, public/ folders)
-    // 4. Return the created project data
-    
-    return Promise.resolve({
-        id: 1, // Placeholder ID
+    const result = await db.insert(projectsTable)
+      .values({
         name: input.name,
         description: input.description || null,
         user_id: input.user_id,
-        metadata: input.metadata || null,
-        created_at: new Date(),
-        updated_at: new Date()
-    } as Project);
+        metadata: input.metadata || null
+      })
+      .returning()
+      .execute();
+
+    const project = result[0];
+
+    // 3. Create initial project structure (src/ and public/ directories)
+    await db.insert(projectFilesTable)
+      .values([
+        {
+          project_id: project.id,
+          path: '/src',
+          content: '',
+          file_type: 'directory',
+          parent_id: null
+        },
+        {
+          project_id: project.id,
+          path: '/public',
+          content: '',
+          file_type: 'directory',
+          parent_id: null
+        }
+      ])
+      .execute();
+
+    // 4. Return the created project data
+    return {
+      ...project,
+      metadata: project.metadata as Record<string, any> | null
+    };
+  } catch (error) {
+    console.error('Project creation failed:', error);
+    throw error;
+  }
 }
